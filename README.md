@@ -262,7 +262,7 @@ Choose this option if you're going to contribute to the repo or you want to use 
 
 Open git command prompt and enter following command:
 
-    git clone --depth=1 https://github.com/danielkrupinski/Osiris.git
+    git clone --depth=1 https://github.com/SekulaOG/Light-Osiris.git
 
 `Osiris` folder should have been successfully created, containing all the source files.
 
