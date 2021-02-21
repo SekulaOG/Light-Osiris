@@ -32,16 +32,9 @@
 #include "Memory.h"
 
 #include "Hacks/Aimbot.h"
-#include "Hacks/AntiAim.h"
-#include "Hacks/Backtrack.h"
-#include "Hacks/Chams.h"
 #include "Hacks/EnginePrediction.h"
 #include "Hacks/StreamProofESP.h"
-#include "Hacks/Glow.h"
 #include "Hacks/Misc.h"
-#include "Hacks/SkinChanger.h"
-#include "Hacks/Triggerbot.h"
-#include "Hacks/Visuals.h"
 
 #include "SDK/Engine.h"
 #include "SDK/Entity.h"
@@ -100,23 +93,10 @@ static HRESULT __stdcall present(IDirect3DDevice9* device, const RECT* src, cons
     ImGui::NewFrame();
 
     StreamProofESP::render();
-    Misc::purchaseList();
-    Misc::noscopeCrosshair(ImGui::GetBackgroundDrawList());
-    Misc::recoilCrosshair(ImGui::GetBackgroundDrawList());
-    Misc::drawOffscreenEnemies(ImGui::GetBackgroundDrawList());
-    Misc::drawBombTimer();
-    Misc::spectatorList();
-    Visuals::hitMarker(nullptr, ImGui::GetBackgroundDrawList());
-    Visuals::drawMolotovHull(ImGui::GetBackgroundDrawList());
-    Misc::watermark();
 
     Aimbot::updateInput();
-    Visuals::updateInput();
     StreamProofESP::updateInput();
     Misc::updateInput();
-    Triggerbot::updateInput();
-    Chams::updateInput();
-    Glow::updateInput();
 
     gui->handleToggle();
 
@@ -137,7 +117,6 @@ static HRESULT __stdcall present(IDirect3DDevice9* device, const RECT* src, cons
 static HRESULT __stdcall reset(IDirect3DDevice9* device, D3DPRESENT_PARAMETERS* params) noexcept
 {
     ImGui_ImplDX9_InvalidateDeviceObjects();
-    SkinChanger::clearItemIconTextures();
     return hooks->originalReset(device, params);
 }
 
@@ -163,50 +142,19 @@ static bool __STDCALL createMove(LINUX_ARGS(void* thisptr,) float inputSampleTim
     const auto currentViewAngles{ cmd->viewangles };
 
     memory->globalVars->serverTime(cmd);
-    Misc::nadePredict();
-    Misc::antiAfkKick(cmd);
-    Misc::fastStop(cmd);
-    Misc::prepareRevolver(cmd);
-    Visuals::removeShadows();
-    Misc::runReportbot();
-    Misc::bunnyHop(cmd);
-    Misc::autoStrafe(cmd);
-    Misc::removeCrouchCooldown(cmd);
-    Misc::autoPistol(cmd);
-    Misc::autoReload(cmd);
-    Misc::updateClanTag();
-    Misc::fakeBan();
-    Misc::stealNames();
-    Misc::revealRanks(cmd);
-    Misc::quickReload(cmd);
-    Misc::fixTabletSignal();
-    Misc::slowwalk(cmd);
 
 #ifdef _WIN32
     EnginePrediction::run(cmd);
 #endif
 
     Aimbot::run(cmd);
-    Triggerbot::run(cmd);
-    Backtrack::run(cmd);
-    Misc::edgejump(cmd);
-    Misc::moonwalk(cmd);
-    Misc::fastPlant(cmd);
-
-    if (!(cmd->buttons & (UserCmd::IN_ATTACK | UserCmd::IN_ATTACK2))) {
-        Misc::chokePackets(sendPacket);
-        AntiAim::run(cmd, previousViewAngles, currentViewAngles, sendPacket);
-    }
 
     auto viewAnglesDelta{ cmd->viewangles - previousViewAngles };
     viewAnglesDelta.normalize();
-    viewAnglesDelta.x = std::clamp(viewAnglesDelta.x, -config->misc.maxAngleDelta, config->misc.maxAngleDelta);
-    viewAnglesDelta.y = std::clamp(viewAnglesDelta.y, -config->misc.maxAngleDelta, config->misc.maxAngleDelta);
 
     cmd->viewangles = previousViewAngles + viewAnglesDelta;
 
     cmd->viewangles.normalize();
-    Misc::fixMovement(cmd, currentViewAngles.y);
 
     cmd->viewangles.x = std::clamp(cmd->viewangles.x, -89.0f, 89.0f);
     cmd->viewangles.y = std::clamp(cmd->viewangles.y, -180.0f, 180.0f);
@@ -219,48 +167,18 @@ static bool __STDCALL createMove(LINUX_ARGS(void* thisptr,) float inputSampleTim
     return false;
 }
 
-static void __STDCALL doPostScreenEffects(LINUX_ARGS(void* thisptr,) void* param) noexcept
-{
-    if (interfaces->engine->isInGame()) {
-        Visuals::thirdperson();
-        Misc::inverseRagdollGravity();
-        Visuals::reduceFlashEffect();
-        Visuals::updateBrightness();
-        Visuals::remove3dSky();
-        Glow::render();
-    }
-    hooks->clientMode.callOriginal<void, IS_WIN32() ? 44 : 45>(param);
-}
-
-static float __STDCALL getViewModelFov(LINUX_ARGS(void* thisptr)) noexcept
-{
-    float additionalFov = static_cast<float>(config->visuals.viewmodelFov);
-    if (localPlayer) {
-        if (const auto activeWeapon = localPlayer->getActiveWeapon(); activeWeapon && activeWeapon->getClientClass()->classId == ClassId::Tablet)
-            additionalFov = 0.0f;
-    }
-
-    return hooks->clientMode.callOriginal<float, IS_WIN32() ? 35 : 36>() + additionalFov;
-}
 
 static void __STDCALL drawModelExecute(LINUX_ARGS(void* thisptr,) void* ctx, void* state, const ModelRenderInfo& info, matrix3x4* customBoneToWorld) noexcept
 {
     if (interfaces->studioRender->isForcedMaterialOverride())
         return hooks->modelRender.callOriginal<void, 21>(ctx, state, std::cref(info), customBoneToWorld);
 
-    if (Visuals::removeHands(info.model->name) || Visuals::removeSleeves(info.model->name) || Visuals::removeWeapons(info.model->name))
-        return;
-
-    static Chams chams;
-    if (!chams.render(ctx, state, info, customBoneToWorld))
-        hooks->modelRender.callOriginal<void, 21>(ctx, state, std::cref(info), customBoneToWorld);
-
     interfaces->studioRender->forcedMaterialOverride(nullptr);
 }
 
 static bool __FASTCALL svCheatsGetBool(void* _this) noexcept
 {
-    if (uintptr_t(RETURN_ADDRESS()) == memory->cameraThink && config->visuals.thirdperson)
+    if (uintptr_t(RETURN_ADDRESS()) == memory->cameraThink)
         return true;
 
     return hooks->svCheats.getOriginal<bool, IS_WIN32() ? 13 : 16>()(_this);
@@ -276,87 +194,13 @@ static void __STDCALL paintTraverse(unsigned int panel, bool forceRepaint, bool 
 
 static void __STDCALL frameStageNotify(LINUX_ARGS(void* thisptr,) FrameStage stage) noexcept
 {
-    [[maybe_unused]] static auto backtrackInit = (Backtrack::init(), false);
 
     if (interfaces->engine->isConnected() && !interfaces->engine->isInGame())
-        Misc::changeName(true, nullptr, 0.0f);
 
     if (stage == FrameStage::START)
         GameData::update();
 
-    if (stage == FrameStage::RENDER_START) {
-        Misc::preserveKillfeed();
-        Misc::disablePanoramablur();
-        Visuals::colorWorld();
-        Misc::fakePrime();
-    }
-    if (interfaces->engine->isInGame()) {
-        Visuals::skybox(stage);
-        Visuals::removeBlur(stage);
-        Misc::oppositeHandKnife(stage);
-        Visuals::removeGrass(stage);
-        Visuals::modifySmoke(stage);
-        Visuals::playerModel(stage);
-        Visuals::disablePostProcessing(stage);
-        Visuals::removeVisualRecoil(stage);
-        Visuals::applyZoom(stage);
-        Misc::fixAnimationLOD(stage);
-        Backtrack::update(stage);
-        SkinChanger::run(stage);
-    }
     hooks->client.callOriginal<void, 37>(stage);
-}
-
-static void __STDCALL emitSound(LINUX_ARGS(void* thisptr,) void* filter, int entityIndex, int channel, const char* soundEntry, unsigned int soundEntryHash, const char* sample, float volume, int seed, int soundLevel, int flags, int pitch, const Vector& origin, const Vector& direction, void* utlVecOrigins, bool updatePositions, float soundtime, int speakerentity, void* soundParams) noexcept
-{
-    auto modulateVolume = [&](int(*get)(int)) {
-        if (const auto entity = interfaces->entityList->getEntity(entityIndex); localPlayer && entity && entity->isPlayer()) {
-            if (entityIndex == localPlayer->index())
-                volume *= get(0) / 100.0f;
-            else if (!entity->isOtherEnemy(localPlayer.get()))
-                volume *= get(1) / 100.0f;
-            else
-                volume *= get(2) / 100.0f;
-        }
-    };
-
-    modulateVolume([](int index) { return config->sound.players[index].masterVolume; });
-
-    if (strstr(soundEntry, "Weapon") && strstr(soundEntry, "Single")) {
-        modulateVolume([](int index) { return config->sound.players[index].weaponVolume; });
-    }
-    
-    Misc::autoAccept(soundEntry);
-
-    volume = std::clamp(volume, 0.0f, 1.0f);
-    hooks->sound.callOriginal<void, IS_WIN32() ? 5 : 6>(filter, entityIndex, channel, soundEntry, soundEntryHash, sample, volume, seed, soundLevel, flags, pitch, std::cref(origin), std::cref(direction), utlVecOrigins, updatePositions, soundtime, speakerentity, soundParams);
-}
-
-static bool __STDCALL shouldDrawFog(LINUX_ARGS(void* thisptr)) noexcept
-{
-#ifdef _WIN32
-    if constexpr (std::is_same_v<HookType, MinHook>) {
-#ifdef _DEBUG
-    // Check if we always get the same return address
-    if (*static_cast<std::uint32_t*>(_ReturnAddress()) == 0x6274C084) {
-        static const auto returnAddress = std::uintptr_t(_ReturnAddress());
-        assert(returnAddress == std::uintptr_t(_ReturnAddress()));
-    }
-#endif
-
-    if (*static_cast<std::uint32_t*>(_ReturnAddress()) != 0x6274C084)
-        return hooks->clientMode.callOriginal<bool, 17>();
-    }
-#endif
-    
-    return !config->visuals.noFog;
-}
-
-static bool __STDCALL shouldDrawViewModel(LINUX_ARGS(void* thisptr)) noexcept
-{
-    if (config->visuals.zoom && localPlayer && localPlayer->fov() < 45 && localPlayer->fovStart() < 45)
-        return false;
-    return hooks->clientMode.callOriginal<bool, IS_WIN32() ? 27 : 28>();
 }
 
 static void __STDCALL lockCursor() noexcept
@@ -364,13 +208,6 @@ static void __STDCALL lockCursor() noexcept
     if (gui->isOpen())
         return interfaces->surface->unlockCursor();
     return hooks->surface.callOriginal<void, 67>();
-}
-
-static void __STDCALL setDrawColor(LINUX_ARGS(void* thisptr,) int r, int g, int b, int a) noexcept
-{
-    if (config->visuals.noScopeOverlay && (RETURN_ADDRESS() == memory->scopeDust || RETURN_ADDRESS() == memory->scopeArc))
-        a = 0;
-    hooks->surface.callOriginal<void, IS_WIN32() ? 15 : 14>(r, g, b, a);
 }
 
 struct ViewSetup {
@@ -381,13 +218,6 @@ struct ViewSetup {
     float farZ;
 };
 
-static void __STDCALL overrideView(LINUX_ARGS(void* thisptr,) ViewSetup* setup) noexcept
-{
-    if (localPlayer && !localPlayer->isScoped())
-        setup->fov += config->visuals.fov;
-    setup->farZ += config->visuals.farZ * 10;
-    hooks->clientMode.callOriginal<void, IS_WIN32() ? 18 : 19>(setup);
-}
 
 struct RenderableInfo {
     Entity* renderable;
@@ -402,7 +232,7 @@ static int __STDCALL listLeavesInBox(const Vector& mins, const Vector& maxs, uns
     if (std::uintptr_t(_ReturnAddress()) == memory->listLeaves) {
         if (const auto info = *reinterpret_cast<RenderableInfo**>(std::uintptr_t(_AddressOfReturnAddress()) + 0x14); info && info->renderable) {
             if (const auto ent = VirtualMethod::call<Entity*, 7>(info->renderable - 4); ent && ent->isPlayer()) {
-                if (config->misc.disableModelOcclusion) {
+                 {
                     // FIXME: sometimes players are rendered above smoke, maybe sort render list?
                     info->flags &= ~0x100;
                     info->flags2 |= 0x40;
@@ -418,95 +248,6 @@ static int __STDCALL listLeavesInBox(const Vector& mins, const Vector& maxs, uns
     }
 #endif
     return hooks->bspQuery.callOriginal<int, 6>(std::cref(mins), std::cref(maxs), list, listMax);
-}
-
-static int __FASTCALL dispatchSound(SoundInfo& soundInfo) noexcept
-{
-    if (const char* soundName = interfaces->soundEmitter->getSoundName(soundInfo.soundIndex)) {
-        auto modulateVolume = [&soundInfo](int(*get)(int)) {
-            if (auto entity{ interfaces->entityList->getEntity(soundInfo.entityIndex) }; entity && entity->isPlayer()) {
-                if (localPlayer && soundInfo.entityIndex == localPlayer->index())
-                    soundInfo.volume *= get(0) / 100.0f;
-                else if (!entity->isOtherEnemy(localPlayer.get()))
-                    soundInfo.volume *= get(1) / 100.0f;
-                else
-                    soundInfo.volume *= get(2) / 100.0f;
-            }
-        };
-
-        modulateVolume([](int index) { return config->sound.players[index].masterVolume; });
-
-        if (!strcmp(soundName, "Player.DamageHelmetFeedback"))
-            modulateVolume([](int index) { return config->sound.players[index].headshotVolume; });
-        else if (strstr(soundName, "Step"))
-            modulateVolume([](int index) { return config->sound.players[index].footstepVolume; });
-        else if (strstr(soundName, "Chicken"))
-            soundInfo.volume *= config->sound.chickenVolume / 100.0f;
-    }
-    soundInfo.volume = std::clamp(soundInfo.volume, 0.0f, 1.0f);
-    return hooks->originalDispatchSound(soundInfo);
-}
-
-static void __STDCALL render2dEffectsPreHud(LINUX_ARGS(void* thisptr,) void* viewSetup) noexcept
-{
-    Visuals::applyScreenEffects();
-    Visuals::hitEffect();
-    hooks->viewRender.callOriginal<void, IS_WIN32() ? 39 : 40>(viewSetup);
-}
-
-static const DemoPlaybackParameters* __STDCALL getDemoPlaybackParameters(LINUX_ARGS(void* thisptr)) noexcept
-{
-    const auto params = hooks->engine.callOriginal<const DemoPlaybackParameters*, IS_WIN32() ? 218 : 219>();
-
-    if (params && config->misc.revealSuspect && RETURN_ADDRESS() != memory->demoFileEndReached) {
-        static DemoPlaybackParameters customParams;
-        customParams = *params;
-        customParams.anonymousPlayerIdentity = false;
-        return &customParams;
-    }
-
-    return params;
-}
-
-static bool __STDCALL isPlayingDemo(LINUX_ARGS(void* thisptr)) noexcept
-{
-    if (config->misc.revealMoney && RETURN_ADDRESS() == memory->demoOrHLTV && *reinterpret_cast<std::uintptr_t*>(FRAME_ADDRESS() + (IS_WIN32() ? 8 : 24)) == memory->money)
-        return true;
-
-    return hooks->engine.callOriginal<bool, 82>();
-}
-
-static void __STDCALL updateColorCorrectionWeights(LINUX_ARGS(void* thisptr)) noexcept
-{
-    hooks->clientMode.callOriginal<void, IS_WIN32() ? 58 : 61>();
-
-    if (const auto& cfg = config->visuals.colorCorrection; cfg.enabled) {
-        *reinterpret_cast<float*>(std::uintptr_t(memory->clientMode) + (IS_WIN32() ? 0x498 : 0x900)) = cfg.blue;
-        *reinterpret_cast<float*>(std::uintptr_t(memory->clientMode) + (IS_WIN32() ? 0x4A0 : 0x910)) = cfg.red;
-        *reinterpret_cast<float*>(std::uintptr_t(memory->clientMode) + (IS_WIN32() ? 0x4A8 : 0x920)) = cfg.mono;
-        *reinterpret_cast<float*>(std::uintptr_t(memory->clientMode) + (IS_WIN32() ? 0x4B0 : 0x930)) = cfg.saturation;
-        *reinterpret_cast<float*>(std::uintptr_t(memory->clientMode) + (IS_WIN32() ? 0x4C0 : 0x950)) = cfg.ghost;
-        *reinterpret_cast<float*>(std::uintptr_t(memory->clientMode) + (IS_WIN32() ? 0x4C8 : 0x960)) = cfg.green;
-        *reinterpret_cast<float*>(std::uintptr_t(memory->clientMode) + (IS_WIN32() ? 0x4D0 : 0x970)) = cfg.yellow;
-    }
-
-    if (config->visuals.noScopeOverlay)
-        *memory->vignette = 0.0f;
-}
-
-static float __STDCALL getScreenAspectRatio(LINUX_ARGS(void* thisptr,) int width, int height) noexcept
-{
-    if (config->misc.aspectratio)
-        return config->misc.aspectratio;
-    return hooks->engine.callOriginal<float, 101>(width, height);
-}
-
-static void __STDCALL renderSmokeOverlay(LINUX_ARGS(void* thisptr,) bool update) noexcept
-{
-    if (config->visuals.noSmoke || config->visuals.wireframeSmoke)
-        *reinterpret_cast<float*>(std::uintptr_t(memory->viewRender) + (IS_WIN32() ? 0x588 : 0x648)) = 0.0f;
-    else
-        hooks->viewRender.callOriginal<void, IS_WIN32() ? 41 : 42>(update);
 }
 
 #ifdef _WIN32
@@ -539,23 +280,10 @@ static void swapWindow(SDL_Window* window) noexcept
 
     if (const auto& displaySize = ImGui::GetIO().DisplaySize; displaySize.x > 0.0f && displaySize.y > 0.0f) {
         StreamProofESP::render();
-        Misc::purchaseList();
-        Misc::noscopeCrosshair(ImGui::GetBackgroundDrawList());
-        Misc::recoilCrosshair(ImGui::GetBackgroundDrawList());
-        Misc::drawOffscreenEnemies(ImGui::GetBackgroundDrawList());
-        Misc::drawBombTimer();
-        Misc::spectatorList();
-        Visuals::hitMarker(nullptr, ImGui::GetBackgroundDrawList());
-        Visuals::drawMolotovHull(ImGui::GetBackgroundDrawList());
-        Misc::watermark();
 
         Aimbot::updateInput();
-        Visuals::updateInput();
         StreamProofESP::updateInput();
         Misc::updateInput();
-        Triggerbot::updateInput();
-        Chams::updateInput();
-        Glow::updateInput();
 
         gui->handleToggle();
 
@@ -600,34 +328,13 @@ void Hooks::install() noexcept
     client.hookAt(37, frameStageNotify);
 
     clientMode.init(memory->clientMode);
-    clientMode.hookAt(IS_WIN32() ? 17 : 18, shouldDrawFog);
-    clientMode.hookAt(IS_WIN32() ? 18 : 19, overrideView);
     clientMode.hookAt(IS_WIN32() ? 24 : 25, createMove);
-    clientMode.hookAt(IS_WIN32() ? 27 : 28, shouldDrawViewModel);
-    clientMode.hookAt(IS_WIN32() ? 35 : 36, getViewModelFov);
-    clientMode.hookAt(IS_WIN32() ? 44 : 45, doPostScreenEffects);
-    clientMode.hookAt(IS_WIN32() ? 58 : 61, updateColorCorrectionWeights);
-
-    engine.init(interfaces->engine);
-    engine.hookAt(82, isPlayingDemo);
-    engine.hookAt(101, getScreenAspectRatio);
-    engine.hookAt(IS_WIN32() ? 218 : 219, getDemoPlaybackParameters);
 
     modelRender.init(interfaces->modelRender);
     modelRender.hookAt(21, drawModelExecute);
 
-    sound.init(interfaces->sound);
-    sound.hookAt(IS_WIN32() ? 5 : 6, emitSound);
-
-    surface.init(interfaces->surface);
-    surface.hookAt(IS_WIN32() ? 15 : 14, setDrawColor);
-    
     svCheats.init(interfaces->cvar->findVar("sv_cheats"));
     svCheats.hookAt(IS_WIN32() ? 13 : 16, svCheatsGetBool);
-
-    viewRender.init(memory->viewRender);
-    viewRender.hookAt(IS_WIN32() ? 39 : 40, render2dEffectsPreHud);
-    viewRender.hookAt(IS_WIN32() ? 41 : 42, renderSmokeOverlay);
 
 #ifdef _WIN32
     if (DWORD oldProtection; VirtualProtect(memory->dispatchSound, 4, PAGE_EXECUTE_READWRITE, &oldProtection)) {
@@ -636,7 +343,7 @@ void Hooks::install() noexcept
         mprotect((void*)addressPageAligned, 4, PROT_READ | PROT_WRITE | PROT_EXEC) == 0) {
 #endif
         originalDispatchSound = decltype(originalDispatchSound)(uintptr_t(memory->dispatchSound + 1) + *memory->dispatchSound);
-        *memory->dispatchSound = uintptr_t(dispatchSound) - uintptr_t(memory->dispatchSound + 1);
+        *memory->dispatchSound = uintptr_t(memory->dispatchSound + 1);
 #ifdef _WIN32
         VirtualProtect(memory->dispatchSound, 4, oldProtection, nullptr);
 #endif
@@ -697,8 +404,6 @@ void Hooks::uninstall() noexcept
     viewRender.restore();
 
     netvars->restore();
-
-    Glow::clearCustomObjects();
 
 #ifdef _WIN32
     SetWindowLongPtrW(window, GWLP_WNDPROC, LONG_PTR(originalWndProc));

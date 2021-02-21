@@ -1,5 +1,4 @@
 #include "Config.h"
-#include "Hacks/SkinChanger.h"
 #include "Interfaces.h"
 #include "Netvars.h"
 
@@ -20,22 +19,6 @@ static void __CDECL spottedHook(recvProxyData& data, void* arg2, void* arg3) noe
 
     constexpr auto hash{ fnv::hash("CBaseEntity->m_bSpotted") };
     proxies[hash].first(data, arg2, arg3);
-}
-
-static void __CDECL viewModelSequence(recvProxyData& data, void* outStruct, void* arg3) noexcept
-{
-    const auto viewModel = reinterpret_cast<Entity*>(outStruct);
-
-    if (localPlayer && interfaces->entityList->getEntityFromHandle(viewModel->owner()) == localPlayer.get()) {
-        if (const auto weapon = interfaces->entityList->getEntityFromHandle(viewModel->weapon())) {
-            if (config->visuals.deagleSpinner && weapon->getClientClass()->classId == ClassId::Deagle && data.value._int == 7)
-                data.value._int = 8;
-
-            SkinChanger::fixKnifeAnimation(weapon, data.value._int);
-        }
-    }
-    constexpr auto hash{ fnv::hash("CBaseViewModel->m_nSequence") };
-    proxies[hash].first(data, outStruct, arg3);
 }
 
 Netvars::Netvars() noexcept
@@ -77,8 +60,6 @@ void Netvars::walkTable(const char* networkName, RecvTable* recvTable, const std
              switch (hash) {
              case fnv::hash("CBaseEntity->m_bSpotted"):
                  return spottedHook;
-             case fnv::hash("CBaseViewModel->m_nSequence"):
-                 return viewModelSequence;
              default:
                  return nullptr;
              }

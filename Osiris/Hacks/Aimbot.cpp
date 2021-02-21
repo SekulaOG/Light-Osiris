@@ -185,7 +185,7 @@ void Aimbot::run(UserCmd* cmd) noexcept
                 if (!config->aimbot[weaponIndex].ignoreSmoke && memory->lineGoesThroughSmoke(localPlayerEyePosition, bonePosition, 1))
                     continue;
 
-                if (!entity->isVisible(bonePosition) && (config->aimbot[weaponIndex].visibleOnly || !canScan(entity, bonePosition, activeWeapon->getWeaponData(), config->aimbot[weaponIndex].killshot ? entity->health() : config->aimbot[weaponIndex].minDamage, config->aimbot[weaponIndex].friendlyFire)))
+                if (!entity->isVisible(bonePosition) && (config->aimbot[weaponIndex].visibleOnly || !canScan(entity, bonePosition, activeWeapon->getWeaponData(), config->aimbot[weaponIndex].minDamage, config->aimbot[weaponIndex].friendlyFire)))
                     continue;
 
                 if (fov < bestFov) {
@@ -201,28 +201,11 @@ void Aimbot::run(UserCmd* cmd) noexcept
             static Vector lastAngles{ cmd->viewangles };
             static int lastCommand{ };
 
-            if (lastCommand == cmd->commandNumber - 1 && lastAngles.notNull() && config->aimbot[weaponIndex].silent)
-                cmd->viewangles = lastAngles;
-
             auto angle = calculateRelativeAngle(localPlayerEyePosition, bestTarget, cmd->viewangles + aimPunch);
             bool clamped{ false };
-
-            if (std::abs(angle.x) > config->misc.maxAngleDelta || std::abs(angle.y) > config->misc.maxAngleDelta) {
-                    angle.x = std::clamp(angle.x, -config->misc.maxAngleDelta, config->misc.maxAngleDelta);
-                    angle.y = std::clamp(angle.y, -config->misc.maxAngleDelta, config->misc.maxAngleDelta);
-                    clamped = true;
-            }
             
             angle /= config->aimbot[weaponIndex].smooth;
             cmd->viewangles += angle;
-            if (!config->aimbot[weaponIndex].silent)
-                interfaces->engine->setViewAngles(cmd->viewangles);
-
-            if (config->aimbot[weaponIndex].autoScope && activeWeapon->nextPrimaryAttack() <= memory->globalVars->serverTime() && activeWeapon->isSniperRifle() && !localPlayer->isScoped())
-                cmd->buttons |= UserCmd::IN_ATTACK2;
-
-            if (config->aimbot[weaponIndex].autoShot && activeWeapon->nextPrimaryAttack() <= memory->globalVars->serverTime() && !clamped && activeWeapon->getInaccuracy() <= config->aimbot[weaponIndex].maxShotInaccuracy)
-                cmd->buttons |= UserCmd::IN_ATTACK;
 
             if (clamped)
                 cmd->buttons &= ~UserCmd::IN_ATTACK;

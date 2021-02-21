@@ -4,8 +4,6 @@
 #include "fnv.h"
 #include "GameData.h"
 #include "Hacks/Misc.h"
-#include "Hacks/SkinChanger.h"
-#include "Hacks/Visuals.h"
 #include "Interfaces.h"
 #include "Memory.h"
 
@@ -39,25 +37,6 @@ void EventListener::fireGameEvent(GameEvent* event)
     switch (fnv::hashRuntime(event->getName())) {
     case fnv::hash("round_start"):
         GameData::clearProjectileList();
-        Misc::preserveKillfeed(true);
-        [[fallthrough]];
-    case fnv::hash("item_purchase"):
-    case fnv::hash("round_freeze_end"):
-        Misc::purchaseList(event);
-        break;
-    case fnv::hash("player_death"):
-        SkinChanger::updateStatTrak(*event);
-        SkinChanger::overrideHudIcon(*event);
-        Misc::killMessage(*event);
-        Misc::killSound(*event);
-        break;
-    case fnv::hash("player_hurt"):
-        Misc::playHitSound(*event);
-        Visuals::hitEffect(event);
-        Visuals::hitMarker(event);
-        break;
-    case fnv::hash("bullet_impact"):
-        Visuals::bulletTracer(*event);
         break;
     }
 }

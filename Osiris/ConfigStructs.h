@@ -135,34 +135,6 @@ struct Projectile : Shared {
     using Shared::operator=;
 };
 
-struct PurchaseList {
-    bool enabled = false;
-    bool onlyDuringFreezeTime = false;
-    bool showPrices = false;
-    bool noTitleBar = false;
-
-    enum Mode {
-        Details = 0,
-        Summary
-    };
-    int mode = Details;
-};
-
-struct PreserveKillfeed {
-    bool enabled = false;
-    bool onlyHeadshots = false;
-};
-
-struct OffscreenEnemies {
-    bool enabled = false;
-    Color4 color{ 1.0f, 0.26f, 0.21f, 1.0f };
-};
-
-struct BulletTracers {
-    bool enabled = false;
-    Color4 color{ 0.0f, 0.75f, 1.0f, 1.0f };
-};
-
 using json = nlohmann::basic_json<std::map, std::vector, std::string, bool, std::int64_t, std::uint64_t, float>;
 using value_t = json::value_t;
 
@@ -209,8 +181,6 @@ static typename std::enable_if_t<!std::is_same_v<T, bool>> read(const json& j, c
     if (!j.contains(key))
         return;
 
-    if (const auto& val = j[key]; val.type() == Type)
-        val.get_to(o);
 }
 
 static void read(const json& j, const char* key, bool& o) noexcept
